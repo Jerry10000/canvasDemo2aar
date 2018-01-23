@@ -1,0 +1,100 @@
+apply plugin: 'com.android.library'
+
+android {
+    signingConfigs {
+        config {
+            keyAlias 'keystore_wwl'
+            keyPassword '123456'
+            storeFile file('C:/keystore_wwl.jks')
+            storePassword '123456'
+        }
+    }
+    compileSdkVersion 26
+    buildToolsVersion "26.0.2"
+    defaultConfig {
+        minSdkVersion 19
+        targetSdkVersion 26
+        versionCode 1
+        versionName "1.0"
+
+//        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.config
+        }
+        debug {
+            minifyEnabled false
+            signingConfig signingConfigs.config
+        }
+
+    }
+    android {
+        lintOptions{
+            abortOnError false
+        }
+    }
+
+}
+
+dependencies {
+//    compile fileTree(include: ['*.jar'], dir: 'libs')
+//    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
+//        exclude group: 'com.android.support', module: 'support-annotations'
+//    })
+//    compile 'com.android.support:appcompat-v7:25.3.1'
+//    compile 'com.google.code.gson:gson:2.7'
+//    testCompile 'junit:junit:4.12'
+
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'com.android.support:appcompat-v7:26.1.0'
+    implementation 'com.google.code.gson:gson:2.7'
+    implementation 'org.litepal.android:core:1.6.0'
+    implementation 'com.android.support.constraint:constraint-layout:1.0.2'
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'com.android.support.test:runner:1.0.1'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
+
+
+}
+
+//task makeJar(type: proguard.gradle.ProGuardTask){
+//    //删除存在的
+//    delete 'build/libs/test.jar'//删除之前编译混淆jar包
+//    injars 'build/intermediates/bundles/default/classes.jar'//项目编译但未混淆的jar
+//    outjars 'build/outputs/jar/test.jar'//混淆后的jar路径
+//    configuration 'proguard-rules.pro'// 混淆配置文件
+////    //设置拷贝的文件
+////    from('build/intermediates/bundles/default')
+////    //打进jar包后的文件目录
+////    into('build/libs')
+////    //将classes.jar放入build/libs/目录下
+////    //include，exclude参数来设置过滤
+////    //（我们只关心classes.jar这个文件）
+////    include('classes.jar')
+////    //重命名
+////    rename('classes.jar', 'test.jar')
+//}
+//makeJar.dependsOn(build)
+
+
+//def SDK_BASENAME = "mylibs";
+//def SDK_VERSION = "_v1.0";
+//def sdkDestinationPath = "build/outputs/jar/";
+//def zipFile = file('build/intermediates/bundles/default/classes.jar')
+//
+//task deleteBuild(type: Delete) {
+//    delete sdkDestinationPath + SDK_BASENAME + SDK_VERSION + ".jar"
+//}
+//
+//task makeJar(type: Jar) {
+//    from zipTree(zipFile)
+//    from fileTree(dir: 'src/main', includes: ['assets/**']) // 打包assets目录下的所有文件
+//    baseName = SDK_BASENAME + SDK_VERSION
+//    destinationDir = file(sdkDestinationPath)
+//}
+//
+//makeJar.dependsOn(deleteBuild, build)
