@@ -1,10 +1,11 @@
 package com.hanvon.canvasdemo.activity;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Rect;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -12,9 +13,6 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.widget.ProgressBar;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import com.hanvon.canvasdemo.R;
@@ -43,7 +41,7 @@ public class FirstActivity extends AppCompatActivity {
     LinkedList<Stroke> list_strokes;
     private SurfaceViewL mSurfaceView;
 //    private ProgressBar progressBar;
-    private ProgressDialog pd;
+    private ProgressDialog progressDialog;
 
     private ExecutorService singleThreadPool = Executors.newSingleThreadExecutor();
     @Override
@@ -55,14 +53,19 @@ public class FirstActivity extends AppCompatActivity {
 //        setContentView(new SurfaceViewL(this));
         mSurfaceView = (SurfaceViewL) findViewById(R.id.strokeView1);
 //        progressBar = (ProgressBar)findViewById(R.id.pb);
-        pd = new ProgressDialog(this);
-        pd.setTitle("提示");
-        pd.setMessage("正在进行保存，请稍等");
-        pd.setCancelable(false);
+
+        //dialog初始化
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setTitle("提示");
+        progressDialog.setMessage("正在进行保存，请稍等");
+        progressDialog.setCancelable(false);
+
+        //动态权限检查
         if(ContextCompat.checkSelfPermission(FirstActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
                 PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(FirstActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
         }
+        //引擎初始化
         if (hwPen == null){
             hwPen = mSurfaceView.getPenEngine();
         }
@@ -122,9 +125,9 @@ public class FirstActivity extends AppCompatActivity {
                 break;
             case R.id.save:
                 //设置一个dialog
-                pd.setTitle("提示");
-                pd.setMessage("正在进行保存，请稍等");
-                pd.show();
+                progressDialog.setTitle("提示");
+                progressDialog.setMessage("正在进行保存，请稍等");
+                progressDialog.show();
 
                 //保存
                 try {
@@ -140,9 +143,9 @@ public class FirstActivity extends AppCompatActivity {
                         while (!isOver){
                             if (hwPen.isFinished){
                                 hwPen.isFinished = false;
-                                mSurfaceView.clearScreen();
+                                mSurfaceView.hardClear();
 //                                mSurfaceView.mainHandler.sendEmptyMessage(mSurfaceView.MSG_CLEARSCREEN);
-                                pd.dismiss();
+                                progressDialog.dismiss();
                                 isOver = true;
                             }
                         }
@@ -157,36 +160,7 @@ public class FirstActivity extends AppCompatActivity {
                 mSurfaceView.clear();
                 break;
             case R.id.load:
-                //设置一个dialog
-                pd.setTitle("提示");
-                pd.setMessage("正在进行加载，请稍等");
-                pd.show();
-
-                //加载
-                try {
-                    hwPen.load();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-                singleThreadPool.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        boolean isOver = false;
-                        while (!isOver){
-                            if (hwPen.isFinished){
-                                hwPen.isFinished = false;
-                                LogUtil.e(TAG, "width = " + mSurfaceView.getmWidth());
-                                LogUtil.e(TAG, "height = " + mSurfaceView.getHeight());
-                                mSurfaceView.update();
-//                                mSurfaceView.mainHandler.sendEmptyMessage(mSurfaceView.MSG_UPDATESCREEN);
-                                pd.dismiss();
-                                isOver = true;
-                            }
-                        }
-                    }
-                });
-
+                showNormalDialog();
                 break;
             case R.id.changePage:
                 Intent intent = new Intent();
@@ -224,6 +198,66 @@ public class FirstActivity extends AppCompatActivity {
             hwPen.setPenInfo(0, HwPenEngine.PEN_TYPE_CORRECTION, 0xe0800000, 50, 0);
             mSurfaceView.penType = HwPenEngine.PEN_TYPE_CORRECTION;
         }
+    }
+
+    private void showNormalDialog(){
+        /* @setIcon 设置对话框图标
+         * @setTitle 设置对话框标题
+         * @setMessage 设置对话框消息提示
+         * setXXX方法返回Dialog对象，因此可以链式设置属性
+         */
+        final AlertDialog.Builder normalDialog =
+                new AlertDialog.Builder(this);
+        normalDialog.setIcon(R.drawable.ic_dialog_alert_holo_light);
+        normalDialog.setTitle("提示");
+        normalDialog.setMessage("加载是针对打开一个原有文件的，\n所以在打开之前应该清理掉当前操作\n（集成后为保存当前操作，再去加载另一文件）");
+        normalDialog.setPositiveButton("确定",
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        //清空之前的所有操作
+                        mSurfaceView.hardClear();
+                        hwPen.resetStrokes();
+                        //设置一个dialog
+                        progressDialog.setTitle("提示");
+                        progressDialog.setMessage("正在进行加载，请稍等");
+                        progressDialog.show();
+
+                        //加载
+                        try {
+                            hwPen.load();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+                        singleThreadPool.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                boolean isOver = false;
+                                while (!isOver){
+                                    if (hwPen.isFinished){
+                                        hwPen.isFinished = false;
+                                        LogUtil.e(TAG, "width = " + mSurfaceView.getmWidth());
+                                        LogUtil.e(TAG, "height = " + mSurfaceView.getHeight());
+                                        mSurfaceView.update();
+//                                mSurfaceView.mainHandler.sendEmptyMessage(mSurfaceView.MSG_UPDATESCREEN);
+                                        progressDialog.dismiss();
+                                        isOver = true;
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+        normalDialog.setNegativeButton("关闭",
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+
+                    }
+                });
+        // 显示
+        normalDialog.show();
     }
 
     @Override

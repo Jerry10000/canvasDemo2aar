@@ -294,7 +294,7 @@ public class SurfaceViewL extends SurfaceView implements SurfaceHolder.Callback{
     /**
      * 此清空不可恢复
      */
-    public void clearScreen(){
+    public void hardClear(){
         Canvas canvas = mSurfaceHolder.lockCanvas();
         if (canvas != null) {
             canvas.drawColor(Color.WHITE);

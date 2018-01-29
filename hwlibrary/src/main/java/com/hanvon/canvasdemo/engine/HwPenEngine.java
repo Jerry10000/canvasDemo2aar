@@ -565,11 +565,7 @@ public class HwPenEngine {
             }
         }).start();
 
-
-        //清空strokes对象、栈
-        strokes = new LinkedList<Stroke1>();
-        undoStack.clear();
-        redoStack.clear();
+        resetStrokes();
     }
 
     /**
@@ -600,6 +596,15 @@ public class HwPenEngine {
         //清空路径下的所有文件
 //        IOUtils.clearFiles(savePath);
 //        blendStrokesToScreen();
+    }
+
+    /**
+     * 清空strokes对象、栈
+     */
+    public void resetStrokes(){
+        strokes = new LinkedList<Stroke1>();
+        undoStack.clear();
+        redoStack.clear();
     }
 
     /**

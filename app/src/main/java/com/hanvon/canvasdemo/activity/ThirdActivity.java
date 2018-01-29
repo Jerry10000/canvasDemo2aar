@@ -76,7 +76,7 @@ public class ThirdActivity extends AppCompatActivity {
             case R.id.item_pen:
                 penBtnClickNum++;
                 switchPenType(penBtnClickNum);
-                hwPen.getNewScreen();
+//                hwPen.getNewScreen();
 
                 break;
             case R.id.item_eraser:
