@@ -28,7 +28,8 @@ import java.util.concurrent.Executors;
 public class SurfaceViewL extends SurfaceView implements SurfaceHolder.Callback{
     private static final String TAG = "SurfaceViewL";
 
-    private static final int MSG_UPDATE = 1;
+    public static final int MSG_UPDATE = 1;
+
 
     private boolean isDrawing;
     // SurfaceHolder
@@ -46,7 +47,7 @@ public class SurfaceViewL extends SurfaceView implements SurfaceHolder.Callback{
 
     private Context context;
     ExecutorService singleThreadPool = Executors.newSingleThreadExecutor();
-    private Handler mainHandler;
+    public Handler mainHandler;
 
 
     public SurfaceViewL(Context context) {
@@ -95,11 +96,8 @@ public class SurfaceViewL extends SurfaceView implements SurfaceHolder.Callback{
                 super.handleMessage(msg);
                 switch (msg.what){
                     case MSG_UPDATE:
-//                        update(new Rect(0, 0, getmWidth(), getHeight()));
-
                         mPenEngine.getNewScreen();
                         update((Rect) msg.obj);
-
                         break;
                 }
 
@@ -208,9 +206,9 @@ public class SurfaceViewL extends SurfaceView implements SurfaceHolder.Callback{
                 break;
             case MotionEvent.ACTION_MOVE:
                 mPenEngine.strokePoint(e.getX(), e.getY(), pressure, updateRect);
-                singleThreadPool.execute(new Runnable() {
-                    @Override
-                    public void run() {
+//                singleThreadPool.execute(new Runnable() {
+//                    @Override
+//                    public void run() {
                         //整笔删除时在内部已经发送了更新消息，这里之后要统一更新方案
                         if (penType == HwPenEngine.PEN_TYPE_ERASER_FOR_STROKE) {
 //                                update(new Rect(0, 0, getmWidth(), getHeight()));
@@ -222,18 +220,18 @@ public class SurfaceViewL extends SurfaceView implements SurfaceHolder.Callback{
 
                             update(new Rect(updateRect[0], updateRect[1], updateRect[2], updateRect[3]));
                         }
-                    }
-                });
+//                    }
+//                });
 
                 break;
             case MotionEvent.ACTION_UP:
                 mPenEngine.endStroke(updateRect);
-                singleThreadPool.execute(new Runnable() {
-                    @Override
-                    public void run() {
+//                singleThreadPool.execute(new Runnable() {
+//                    @Override
+//                    public void run() {
                     update(new Rect(updateRect[0], updateRect[1], updateRect[2], updateRect[3]));
-                    }
-                });
+//                    }
+//                });
 //                singleThreadPool.execute(new Runnable() {
 //                    @Override
 //                    public void run() {
@@ -253,8 +251,17 @@ public class SurfaceViewL extends SurfaceView implements SurfaceHolder.Callback{
         return true;
     }
 
-
-
+    public void update(){
+        try {
+            //更新的是整个屏幕
+            mBitmap.setPixels(mPixels, 0, mWidth,0, 0, mWidth, mHeight);
+            Canvas canvas = mSurfaceHolder.lockCanvas();
+            DrawLayers(canvas);
+            mSurfaceHolder.unlockCanvasAndPost(canvas);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     public void update(Rect rect) {
         if (rect != null && !rect.isEmpty()) {
@@ -284,6 +291,9 @@ public class SurfaceViewL extends SurfaceView implements SurfaceHolder.Callback{
         }
     }
 
+    /**
+     * 此清空不可恢复
+     */
     public void clearScreen(){
         Canvas canvas = mSurfaceHolder.lockCanvas();
         if (canvas != null) {
@@ -291,16 +301,15 @@ public class SurfaceViewL extends SurfaceView implements SurfaceHolder.Callback{
 //            mBitmap.eraseColor(0x00ffffff);
         }
         mSurfaceHolder.unlockCanvasAndPost(canvas);
+
+        //清空核心
+        mPenEngine.fillSurface(0x00ffffff);
     }
 
-
+    /**
+     * 此清空可恢复
+     */
     public void clear(){
-//        Canvas canvas = mSurfaceHolder.lockCanvas();
-//        if (canvas != null) {
-//            canvas.drawColor(Color.WHITE);
-//            mBitmap.eraseColor(0x00ffffff);
-//        }
-//        mSurfaceHolder.unlockCanvasAndPost(canvas);
         mPenEngine.clear();
         update(new Rect(0, 0, mWidth, mHeight));
     }

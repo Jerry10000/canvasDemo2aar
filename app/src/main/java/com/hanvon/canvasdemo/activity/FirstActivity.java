@@ -1,6 +1,7 @@
 package com.hanvon.canvasdemo.activity;
 
 import android.Manifest;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Rect;
@@ -17,6 +18,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.hanvon.canvasdemo.R;
+import com.hanvon.canvasdemo.Utils.LogUtil;
 import com.hanvon.canvasdemo.beans.Stroke;
 import com.hanvon.canvasdemo.beans.Template;
 import com.hanvon.canvasdemo.engine.HwPenEngine;
@@ -24,6 +26,8 @@ import com.hanvon.canvasdemo.view.SurfaceViewL;
 
 import java.io.IOException;
 import java.util.LinkedList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class FirstActivity extends AppCompatActivity {
     private static final String TAG = "FirstActivity";
@@ -38,7 +42,10 @@ public class FirstActivity extends AppCompatActivity {
     private boolean penIsBeautify, penIsTransparent;
     LinkedList<Stroke> list_strokes;
     private SurfaceViewL mSurfaceView;
-    private ProgressBar progressBar;
+//    private ProgressBar progressBar;
+    private ProgressDialog pd;
+
+    private ExecutorService singleThreadPool = Executors.newSingleThreadExecutor();
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,7 +54,11 @@ public class FirstActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 //        setContentView(new SurfaceViewL(this));
         mSurfaceView = (SurfaceViewL) findViewById(R.id.strokeView1);
-        progressBar = (ProgressBar)findViewById(R.id.pb);
+//        progressBar = (ProgressBar)findViewById(R.id.pb);
+        pd = new ProgressDialog(this);
+        pd.setTitle("提示");
+        pd.setMessage("正在进行保存，请稍等");
+        pd.setCancelable(false);
         if(ContextCompat.checkSelfPermission(FirstActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
                 PackageManager.PERMISSION_GRANTED){
             ActivityCompat.requestPermissions(FirstActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
@@ -80,7 +91,7 @@ public class FirstActivity extends AppCompatActivity {
             case R.id.item_pen:
                 penBtnClickNum++;
                 switchPenType(penBtnClickNum);
-                hwPen.getNewScreen();
+//                hwPen.getNewScreen();
 
                 break;
             case R.id.item_eraser:
@@ -99,38 +110,45 @@ public class FirstActivity extends AppCompatActivity {
                 if (hwPen.getUndoSteps() > 0){
                     long time0 = System.currentTimeMillis();
                     hwPen.undo();
-                    mSurfaceView.update(new Rect(0, 0, mSurfaceView.getmWidth(), mSurfaceView.getHeight()));
+                    mSurfaceView.update();
 //                    Toast.makeText(FirstActivity.this, (System.currentTimeMillis() - time0) + "ms", Toast.LENGTH_SHORT).show();
                 }
                 break;
             case R.id.item_next:
                 if (hwPen.getRedoSteps() > 0){
                     hwPen.redo();
-                    mSurfaceView.update(new Rect(0, 0, mSurfaceView.getmWidth(), mSurfaceView.getHeight()));
+                    mSurfaceView.update();
                 }
                 break;
             case R.id.save:
+                //设置一个dialog
+                pd.setTitle("提示");
+                pd.setMessage("正在进行保存，请稍等");
+                pd.show();
 
-//                long begin0 = System.currentTimeMillis();
+                //保存
                 try {
-                    progressBar.setVisibility(View.VISIBLE);
-
                     hwPen.save();
-                    mSurfaceView.clearScreen();
-                    Toast.makeText(FirstActivity.this, "正在保存\n保存后不能撤销恢复，需通过load来加载！！", Toast.LENGTH_LONG).show();
-//                    progressBar.setVisibility(View.INVISIBLE);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-//                long end0 = System.currentTimeMillis();
-//                Toast.makeText(FirstActivity.this, "save:" + (end0 - begin0) + " 豪秒", Toast.LENGTH_SHORT).show();
-//                new Thread(new Runnable() {
-//                    @Override
-//                    public void run() {
-//                        final String log = getLog();
-//                    }
-//                }).start();
-//                Toast.makeText(FirstActivity.this, "点击了保存", Toast.LENGTH_SHORT).show();
+
+                singleThreadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        boolean isOver = false;
+                        while (!isOver){
+                            if (hwPen.isFinished){
+                                hwPen.isFinished = false;
+                                mSurfaceView.clearScreen();
+//                                mSurfaceView.mainHandler.sendEmptyMessage(mSurfaceView.MSG_CLEARSCREEN);
+                                pd.dismiss();
+                                isOver = true;
+                            }
+                        }
+                    }
+                });
+
                 break;
             case R.id.setting:
                 Toast.makeText(FirstActivity.this, "点击了设置", Toast.LENGTH_SHORT).show();
@@ -139,15 +157,36 @@ public class FirstActivity extends AppCompatActivity {
                 mSurfaceView.clear();
                 break;
             case R.id.load:
-//                begin0 = System.currentTimeMillis();
+                //设置一个dialog
+                pd.setTitle("提示");
+                pd.setMessage("正在进行加载，请稍等");
+                pd.show();
+
+                //加载
                 try {
                     hwPen.load();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                mSurfaceView.update(new Rect(0, 0, mSurfaceView.getmWidth(), mSurfaceView.getHeight()));
-//                end0 = System.currentTimeMillis();
-//                Toast.makeText(FirstActivity.this, "load:" + (end0 - begin0) + " 豪秒", Toast.LENGTH_SHORT).show();
+
+                singleThreadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        boolean isOver = false;
+                        while (!isOver){
+                            if (hwPen.isFinished){
+                                hwPen.isFinished = false;
+                                LogUtil.e(TAG, "width = " + mSurfaceView.getmWidth());
+                                LogUtil.e(TAG, "height = " + mSurfaceView.getHeight());
+                                mSurfaceView.update();
+//                                mSurfaceView.mainHandler.sendEmptyMessage(mSurfaceView.MSG_UPDATESCREEN);
+                                pd.dismiss();
+                                isOver = true;
+                            }
+                        }
+                    }
+                });
+
                 break;
             case R.id.changePage:
                 Intent intent = new Intent();

@@ -14,7 +14,6 @@
         android:theme="@style/AppTheme">
         <activity android:name=".activity.MainActivity">
         </activity>
-
         <activity
             android:name=".activity.FirstActivity"
             android:configChanges="orientation|screenSize"
@@ -26,7 +25,6 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-
         <activity
             android:name=".activity.SecondActivity"
             android:configChanges="orientation|screenSize"
@@ -40,6 +38,9 @@
             android:screenOrientation="portrait">
         </activity>
         <activity android:name=".activity.Main2Activity">
+        </activity>
+        <activity android:name=".activity.DialogActivity"
+            android:theme="@style/Theme.AppCompat.Dialog">
         </activity>
     </application>
 

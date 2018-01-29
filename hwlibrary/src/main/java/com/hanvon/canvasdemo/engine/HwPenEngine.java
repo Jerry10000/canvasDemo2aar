@@ -80,6 +80,7 @@ public class HwPenEngine {
     private int stackSize = 50;
 
     private ExecutorService fixedThreadPool = Executors.newFixedThreadPool(4);
+    public boolean isFinished = false;
 
     private String savePath = "/mnt/sdcard/wwl/";
     private String suffix = ".st";
@@ -420,7 +421,7 @@ public class HwPenEngine {
                                             //删除当前笔（修改strokes中笔画状态、修改栈信息、更新显示）
                                             mainHandler.removeMessages(1);
                                             deleteStroke(stroke.getStrokeID());
-                                            LogUtil.e(TAG, "删除笔画的ID = " + stroke.getStrokeID());
+                                            LogUtil.i(TAG, "删除笔画的ID = " + stroke.getStrokeID());
                                             break;
                                         }
                                     }
@@ -536,6 +537,7 @@ public class HwPenEngine {
      * @throws IOException
      */
     public void save() throws IOException {
+        isFinished = false;
         //清空路径下的所有文件
         IOUtils.clearFiles(savePath);
 
@@ -548,6 +550,22 @@ public class HwPenEngine {
 //        //保存整个内存区的方式，此方式优点是快，缺点是加载后不能再次编辑了
 //        IOUtils.writeIntArrayToFile(drawMemory, savePath, "strokes" + suffix);
 
+        fixedThreadPool.shutdown();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while(true){
+                    if(fixedThreadPool.isTerminated()){
+                        LogUtil.e(TAG, "所有save的子线程都结束了");
+                        fixedThreadPool = Executors.newFixedThreadPool(4);
+                        isFinished = true;
+                        break;
+                    }
+                }
+            }
+        }).start();
+
+
         //清空strokes对象、栈
         strokes = new LinkedList<Stroke1>();
         undoStack.clear();
@@ -559,8 +577,17 @@ public class HwPenEngine {
      * @throws IOException
      */
     public void load() throws IOException {
+        isFinished = false;
 //        loadStrokesFromJson(savePath+"0" + suffix);
-        loadStrokeFromJson(savePath);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                loadStrokeFromJson(savePath);
+                blendStrokesToScreen();
+                isFinished = true;
+            }
+        }).start();
+
 //        loadStrokeFromJsonAsync(savePath);
 
 
@@ -572,7 +599,7 @@ public class HwPenEngine {
 
         //清空路径下的所有文件
 //        IOUtils.clearFiles(savePath);
-        blendStrokesToScreen();
+//        blendStrokesToScreen();
     }
 
     /**
@@ -695,49 +722,39 @@ public class HwPenEngine {
      */
     private void saveStrokeAsJson(final List<Stroke1> data, final String path){
         final Gson gson = new Gson();
+        int id = 0;
+        //将每个笔画提取出来
+//        for (int i = 0; i < data.size(); i++){
+////            //将所有显示的笔画进行保存，不显示的就不做保存了,这样就需要对ID进行修改，否则内外不一致，在删除等操作时会出现数组越界
+//            if (data.get(i).isVisible()){
+//                //异步存储
+//                final int finalI = i;
+//                final int finalId = id++;
+//                fixedThreadPool.execute(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        String jsonString = gson.toJson(data.get(finalI));
+//                        byte[] gzJsonByteArray = IOUtils.compress(jsonString, "UTF-8");
+//                        jsonString = new String(IOUtils.uncompress(gzJsonByteArray));
+//                        IOUtils.writeStringToFile(jsonString, path, finalId + ".st");
+//                    }
+//                });
+//            }
+//        }
         //将每个笔画提取出来
         for (int i = 0; i < data.size(); i++){
-//            //将所有显示的笔画进行保存，不显示的就不做保存了
-//            if (data.get(i).isVisible()){
-                //异步存储
+//            //将所有笔画进行保存
                 final int finalI = i;
                 fixedThreadPool.execute(new Runnable() {
                     @Override
                     public void run() {
-                        long time0 = System.currentTimeMillis();
                         String jsonString = gson.toJson(data.get(finalI));
-                        long time1 = System.currentTimeMillis();
-                        LogUtil.e(TAG, "转化为json的时间 = " + (time1 - time0) );
-//                        LogUtil.e(TAG, "压缩前的长度: " + jsonString.length());
                         byte[] gzJsonByteArray = IOUtils.compress(jsonString, "UTF-8");
-                        long time2 = System.currentTimeMillis();
-                        LogUtil.e(TAG, "gzip压缩 = " + (time2 - time1) );
-//                        String gzJsonString = new String(gzJsonByteArray);
-//                        LogUtil.e(TAG, "压缩后的长度: " + gzJsonString.length());
                         jsonString = new String(IOUtils.uncompress(gzJsonByteArray));
-                        long time3 = System.currentTimeMillis();
-                        LogUtil.e(TAG, "gzip解压时间 = " + (time3 - time2) );
-//                        LogUtil.e(TAG, "解压后的长度: " + jsonString.length());
                         IOUtils.writeStringToFile(jsonString, path, finalI + ".st");
-                        long time4 = System.currentTimeMillis();
-                        LogUtil.e(TAG, "写文件时间 = " + (time4 - time3) );
-                        LogUtil.e(TAG, "save: " + finalI);
                     }
                 });
-//            }
         }
-//        /*******************************/
-//        fixedThreadPool.shutdown();
-//
-//        while(isSaving){
-//            if(fixedThreadPool.isTerminated()){
-//                isSaving = false;
-//                break;
-//            }
-//        }
-//
-//
-//        /******************************/
     }
 
     /**
@@ -769,16 +786,14 @@ public class HwPenEngine {
         for (File file : files){
             String fileName = file.getName();
             int index = Integer.parseInt(fileName.substring(0, fileName.length()-3));
-//            long timeBegin = System.currentTimeMillis();
             String jsonString = IOUtils.readFileByChars(file.getAbsolutePath());
-//            LogUtil.e(TAG, "读文件的时间 = " + (System.currentTimeMillis() - timeBegin));
-//            long time1 = System.currentTimeMillis();
             Stroke1 stroke = gson.fromJson(jsonString, Stroke1.class);
-//            LogUtil.e(TAG, "生成json的时间为 = " + (System.currentTimeMillis() - time1));
             strokeArray[index] = stroke;
         }
         strokes = new LinkedList<Stroke1>();
+        LogUtil.e(TAG, "strokes长度 = " + strokeArray.length);
         for (int i = 0; i < strokeArray.length; i++){
+            LogUtil.e(TAG, "strokeArray[i] is " + strokeArray[i].isVisible());
             strokes.add(strokeArray[i]);
         }
 
@@ -808,7 +823,7 @@ public class HwPenEngine {
                 @Override
                 public void run() {
                     String jsonString = IOUtils.readFileByChars(files[finalI].getAbsolutePath());
-                    LogUtil.e(TAG, "load: " + finalI);
+                    LogUtil.i(TAG, "load: " + finalI);
                     Stroke1 stroke = gson.fromJson(jsonString, Stroke1.class);
                     strokes.add(finalIndex, stroke);
                 }
@@ -854,7 +869,7 @@ public class HwPenEngine {
 
     private void showStrokesVisibleState(){
 //        for (int i = 0; i < strokes.size(); i++){
-//            LogUtil.e(TAG, "strokes[" + i + "] is " + strokes.get(i).isVisible());
+//            LogUtil.i(TAG, "strokes[" + i + "] is " + strokes.get(i).isVisible());
 //        }
     }
 
